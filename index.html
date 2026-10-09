@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nanoscale Materials Explorer</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {},
+            },
+        }
+    </script>
+    
+    <!-- Load FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Load React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Load Babel for JSX compiling in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        .perspective-1000 { perspective: 1000px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+    <!-- React Mount Point -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- DATABASE: NANO VS BULK MATERIALS ---
+        const MATERIALS_DB = {
+          carbon: {
+            id: 'carbon',
+            name: 'Carbon',
+            nano: {
+              name: 'Graphene / Carbon Nanotubes',
+              type: 'Nanomaterial',
+              description: 'A single layer of carbon atoms arranged in a 2D honeycomb lattice (graphene) or rolled into a seamless cylinder (CNT).',
+              strength: 130, // GPa
+              conductivity: 100000000, // S/m
+              surfaceArea: 2630, // m2/g
+              optical: 'Transparent (Absorbs ~2.3% of light)',
+              density: 'Extremely Low (Aerogels can be 0.16 mg/cm³)',
+              mechanisms: {
+                strength: 'Perfect 2D sp2 carbon-carbon bonding network strongly resists tearing.',
+                conductivity: 'Ballistic transport of delocalized pi electrons with almost no scattering.',
+                surfaceArea: 'Every single atom is exposed directly on the surface of the 2D sheet.',
+                optical: 'Ultrathin single-atom nature allows 97.7% of light to pass right through.',
+                density: 'Aerogels are mostly air; individual sheets have atomic thickness.'
+              }
+            },
+            bulk: {
+              name: 'Graphite',
+              type: 'Bulk Material',
+              description: 'Millions of layers of graphene stacked together, held loosely by Van der Waals forces. Commonly found in pencil lead.',
+              strength: 0.05, // GPa
+              conductivity: 3000, // S/m
+              surfaceArea: 10, // m2/g
+              optical: 'Opaque, dark grey/black',
+              density: '2.26 g/cm³',
+              mechanisms: {
+                strength: 'Weak Van der Waals forces between layers allow them to slide and break easily.',
+                conductivity: 'Electrons scatter frequently across bulk defects and boundaries, losing energy as heat.',
+                surfaceArea: 'Inner atoms are densely packed and hidden from the exterior surface.',
+                optical: 'Dense stacked layers absorb and reflect all visible light.',
+                density: 'Tightly packed macroscopic stacking of carbon sheets.'
+              }
+            }
+          },
+          gold: {
+            id: 'gold',
+            name: 'Gold',
+            nano: {
+              name: 'Gold Nanoparticles (AuNPs)',
+              type: 'Nanomaterial',
+              description: 'Tiny spheres of gold (1-100nm). Their electrons resonate with specific wavelengths of light (Surface Plasmon Resonance).',
+              strength: 1.5, // GPa
+              conductivity: 20000000, // S/m (lower than bulk due to scattering)
+              surfaceArea: 100, // m2/g
+              optical: 'Red, purple, or blue depending on exact size',
+              density: '19.3 g/cm³ (same as bulk, but suspended in solution)',
+              mechanisms: {
+                strength: 'Defect-free crystal structure at small scales increases proportional yield strength.',
+                conductivity: 'Increased surface scattering of electrons reduces conductivity compared to bulk.',
+                surfaceArea: 'A huge proportion of the total atoms are located on the outer particle surface.',
+                optical: 'Surface Plasmon Resonance (SPR) absorbs specific light frequencies depending on the exact particle diameter.',
+                density: 'Appears lower visually due to suspension in solvents, though the intrinsic metallic density remains the same.'
+              }
+            },
+            bulk: {
+              name: 'Bulk Gold',
+              type: 'Bulk Material',
+              description: 'A dense, soft, malleable, and ductile metal. It is highly non-reactive and highly conductive.',
+              strength: 0.1, // GPa (Yield)
+              conductivity: 41000000, // S/m
+              surfaceArea: 0.001, // m2/g
+              optical: 'Highly reflective, metallic yellow',
+              density: '19.3 g/cm³',
+              mechanisms: {
+                strength: 'Presence of grain boundaries and structural dislocations allows for plastic deformation.',
+                conductivity: 'A free electron gas moves easily through the continuous macroscopic metal lattice.',
+                surfaceArea: 'Minimal exposed surface compared to the massive internal volume.',
+                optical: 'Free electrons reflect almost all visible light, giving a shiny appearance.',
+                density: 'Close-packed face-centered cubic (FCC) crystal lattice.'
+              }
+            }
+          },
+          semiconductor: {
+            id: 'semiconductor',
+            name: 'Semiconductors (CdSe)',
+            nano: {
+              name: 'Quantum Dots',
+              type: 'Nanomaterial',
+              description: 'Semiconductor nanocrystals where quantum confinement dictates the bandgap, allowing for precise control over emitted light.',
+              strength: 1.0, 
+              conductivity: 'Tunable / Semiconducting', 
+              surfaceArea: 150, 
+              optical: 'Fluoresces bright distinct colors (Blue to Red based on size)',
+              density: 'Varies by core/shell material',
+              mechanisms: {
+                strength: 'Crystalline core is rigid, though typically capped with soft organic ligands.',
+                conductivity: 'Charge carriers are quantum confined; requires precise energy to cross the bandgap.',
+                surfaceArea: 'Extremely high surface area due to tiny nanometer radius.',
+                optical: 'Quantum confinement restricts electron energies, emitting specific colors based strictly on crystal size.',
+                density: 'Includes the lower-density organic ligand shell surrounding the dense core.'
+              }
+            },
+            bulk: {
+              name: 'Bulk Cadmium Selenide',
+              type: 'Bulk Material',
+              description: 'A standard solid semiconductor material with a fixed, continuous energy band structure.',
+              strength: 0.5, 
+              conductivity: 'Semiconducting', 
+              surfaceArea: 0.1, 
+              optical: 'Opaque, fixed dark color / fixed emission spectrum',
+              density: '5.81 g/cm³',
+              mechanisms: {
+                strength: 'Macroscopic crystalline bonds, prone to brittle fracture at microscopic defects.',
+                conductivity: 'Continuous energy bands allow consistent thermal excitation of electrons.',
+                surfaceArea: 'Standard macroscopic volume with negligible surface exposure.',
+                optical: 'Fixed bulk bandgap absorbs most visible light indiscriminately, making it opaque.',
+                density: 'Standard solid crystalline density.'
+              }
+            }
+          },
+          organic: {
+            id: 'organic',
+            name: 'Organic (Lipids)',
+            nano: {
+              name: 'Lipid Nanoparticles (LNPs)',
+              type: 'Organic Nanomaterial',
+              description: 'Spherical nanoscale vesicles made of lipid bilayers. Crucial for modern medicine (like mRNA vaccines) as their tiny size allows them to safely slip past cellular membranes and deliver payloads directly into cells.',
+              strength: 'Highly flexible / Soft',
+              conductivity: 'Insulator',
+              surfaceArea: 250, 
+              optical: 'Translucent in suspension',
+              density: '~1.0 g/cm³ (Suspended)',
+              mechanisms: {
+                strength: 'Held together by fluid hydrophobic interactions, allowing shape-shifting and cellular fusion.',
+                conductivity: 'Lacks free electrons; acts as a dielectric cellular boundary.',
+                surfaceArea: 'High curvature and tiny radius exposes a massive surface for protein/cellular interaction.',
+                optical: 'Particles are smaller than visible light wavelengths, causing Rayleigh scattering.',
+                density: 'Aqueous core and lipid shell matches the density of surrounding biological fluids.'
+              }
+            },
+            bulk: {
+              name: 'Bulk Fat / Lipids',
+              type: 'Bulk Organic Material',
+              description: 'Large, continuous masses of lipid molecules (like butter or adipose tissue). It acts as bulk energy storage but cannot easily interface with individual cellular machinery due to its massive scale and hydrophobicity.',
+              strength: 'Yields easily / Semi-solid',
+              conductivity: 'Insulator',
+              surfaceArea: 0.01, 
+              optical: 'Opaque, yellowish-white',
+              density: '~0.9 g/cm³',
+              mechanisms: {
+                strength: 'Amorphous macroscopic structure yields to slight physical pressure.',
+                conductivity: 'Thick insulating mass completely prevents electron flow.',
+                surfaceArea: 'Large continuous mass hides almost all functional molecules internally.',
+                optical: 'Scatters and absorbs light massively across the bulk lipid matrix.',
+                density: 'Highly buoyant; loosely packed hydrocarbon chains.'
+              }
+            }
+          }
+        };
+
+        const QUIZ_QUESTIONS = [
+          {
+            id: 1,
+            type: 'mcq',
+            question: "What happens to the Surface-to-Volume (S/V) ratio of a material as its particle size decreases to the nanoscale?",
+            options: ["It decreases significantly", "It remains completely unchanged", "It increases exponentially"],
+            correctAnswer: "It increases exponentially",
+            explanation: "As an object shrinks, its volume decreases at a cubic rate while its surface area decreases at a square rate, leading to a massive spike in the S/V ratio. This makes nanomaterials incredibly reactive!"
+          },
+          {
+            id: 2,
+            type: 'fib',
+            question: "At around 10nm in size, spherical gold nanoparticles dispersed in water naturally appear ________ in color.",
+            correctAnswer: "red",
+            explanation: "Due to localized surface plasmon resonance (LSPR), 10nm gold nanoparticles absorb green light and reflect red light. Bulk gold is yellow!"
+          },
+          {
+            id: 3,
+            type: 'tf',
+            question: "True or False: Carbon Nanotubes exhibit 'ballistic transport', allowing electrons to flow almost without resistance.",
+            correctAnswer: "True",
+            explanation: "In carbon nanotubes, electrons can travel long distances without scattering off atoms or defects, resulting in incredibly high electrical conductivity with minimal heat generation."
+          },
+          {
+            id: 4,
+            type: 'mcq',
+            question: "Which of the following best describes the tensile strength of a pristine Graphene sheet compared to bulk steel?",
+            options: ["About 100 times stronger", "Roughly equal in strength", "Significantly weaker due to being 1 atom thick"],
+            correctAnswer: "About 100 times stronger",
+            explanation: "Graphene has a tensile strength of about 130 GPa, making it over 100 times stronger than structural steel, thanks to its perfectly arranged 2D sp2 carbon-carbon bonds."
+          },
+          {
+            id: 5,
+            type: 'tf',
+            question: "True or False: The optical properties (color of light emitted) of Quantum Dots can be changed simply by altering their physical size.",
+            correctAnswer: "True",
+            explanation: "Because of 'quantum confinement', a smaller quantum dot has a larger bandgap (emitting blue light), while a larger dot has a smaller bandgap (emitting red light)."
+          }
+        ];
+
+        const SurfaceVolumeVisualizer = () => {
+          const [cuts, setCuts] = useState(0);
+          
+          const piecesPerAxis = cuts + 1;
+          const totalPieces = Math.pow(piecesPerAxis, 3);
+          const sizeOfPiece = 100 / piecesPerAxis; // percentage
+          
+          const baseSideLength = 10; // mm
+          const currentSideLength = baseSideLength / piecesPerAxis;
+          const surfaceArea = totalPieces * 6 * Math.pow(currentSideLength, 2);
+          const volume = Math.pow(baseSideLength, 3);
+          const svRatio = (surfaceArea / volume).toFixed(2);
+
+          return (
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 mb-4 text-indigo-600 dark:text-indigo-400">
+                <i className="fa-solid fa-cube text-xl"></i>
+                <h3 className="text-xl font-bold">Surface to Volume Ratio</h3>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Slide to divide the block. As particles get smaller (more divisions), the total surface area exposed skyrockets while volume remains constant.
+              </p>
+              
+              <div className="flex flex-col items-center">
+                <div className="relative w-48 h-48 mb-6 perspective-1000">
+                  <div className="w-full h-full flex flex-wrap" style={{ gap: '1px' }}>
+                    {Array.from({ length: piecesPerAxis * piecesPerAxis }).map((_, i) => (
+                      <div 
+                        key={i} 
+                        className="bg-indigo-500 dark:bg-indigo-600 rounded-sm transition-all duration-300"
+                        style={{ 
+                          width: `calc(${100 / piecesPerAxis}% - 1px)`, 
+                          height: `calc(${100 / piecesPerAxis}% - 1px)` 
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                <input 
+                  type="range" 
+                  min="0" max="19" 
+                  value={cuts} 
+                  onChange={(e) => setCuts(parseInt(e.target.value))}
+                  className="w-full accent-indigo-500 mb-6"
+                />
+                
+                <div className="grid grid-cols-2 gap-4 w-full text-center">
+                  <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Pieces</div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-white">{totalPieces.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-indigo-100 dark:bg-indigo-900/40 p-3 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                    <div className="text-xs text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">S/V Ratio</div>
+                    <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{svRatio}</div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 flex gap-3 text-sm text-slate-700 dark:text-slate-300 w-full text-left">
+                  <i className="fa-solid fa-circle-info text-lg text-indigo-500 flex-shrink-0 mt-0.5"></i>
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 block mb-1">The Mechanism:</span>
+                    As a bulk material is divided into smaller pieces, atoms that were previously trapped inside the interior volume become exposed on the surface. At the nanoscale, a massive percentage of the material's total atoms are located entirely on the surface, making nanomaterials incredibly chemically reactive.
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const OpticalVisualizer = () => {
+          const [size, setSize] = useState(50); // 2 to 100nm
+          
+          const getGoldColor = (s) => {
+            if (s < 15) return 'rgb(255, 50, 50)'; // Red
+            if (s < 35) return 'rgb(200, 50, 150)'; // Purple
+            if (s < 70) return 'rgb(50, 100, 255)'; // Blue
+            return 'rgb(255, 215, 0)'; // Yellow/Gold
+          };
+
+          const getQDColor = (s) => {
+            if (s < 20) return 'rgb(0, 150, 255)'; // Blue
+            if (s < 50) return 'rgb(50, 255, 100)'; // Green
+            if (s < 80) return 'rgb(255, 150, 0)'; // Orange
+            return 'rgb(255, 0, 0)'; // Red
+          };
+
+          return (
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 mb-4 text-rose-600 dark:text-rose-400">
+                <i className="fa-solid fa-eye text-xl"></i>
+                <h3 className="text-xl font-bold">Optical Properties</h3>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Adjust particle size to see how nanomaterials interact with light. At the nanoscale, size dictates color!
+              </p>
+
+              <div className="flex flex-col items-center">
+                <div className="flex justify-around w-full mb-8">
+                  <div className="flex flex-col items-center">
+                    <div 
+                      className="w-24 h-24 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.3)] transition-colors duration-500 flex items-center justify-center text-white font-bold"
+                      style={{ backgroundColor: getGoldColor(size), boxShadow: `0 0 40px ${getGoldColor(size)}80` }}
+                    >
+                      Au
+                    </div>
+                    <span className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Gold Nanoparticle</span>
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                    <div 
+                      className="w-24 h-24 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.3)] transition-colors duration-500 flex items-center justify-center text-white font-bold"
+                      style={{ backgroundColor: getQDColor(size), boxShadow: `0 0 40px ${getQDColor(size)}80` }}
+                    >
+                      QD
+                    </div>
+                    <span className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Quantum Dot</span>
+                  </div>
+                </div>
+
+                <input 
+                  type="range" 
+                  min="2" max="100" 
+                  value={size} 
+                  onChange={(e) => setSize(parseInt(e.target.value))}
+                  className="w-full accent-rose-500 mb-4"
+                />
+                
+                <div className="w-full flex justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+                  <span>2nm (Quantum)</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-base">{size} nm</span>
+                  <span>100nm (Bulk-like)</span>
+                </div>
+
+                <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 flex gap-3 text-sm text-slate-700 dark:text-slate-300 w-full text-left">
+                  <i className="fa-solid fa-circle-info text-lg text-rose-500 flex-shrink-0 mt-0.5"></i>
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 block mb-1">The Mechanism:</span>
+                    <strong>Gold (Au):</strong> Light waves cause the sea of surface electrons to oscillate together (Surface Plasmon Resonance). Smaller particles resonate with shorter wavelengths (absorbing green, reflecting red).<br/>
+                    <strong>Quantum Dots (QD):</strong> "Quantum Confinement" traps electrons in a tiny space. Smaller dots mean a larger energy gap, emitting higher energy (blue) light when excited.
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const MechanicsVisualizer = () => {
+          const [stress, setStress] = useState(0); 
+
+          const steelBreaks = stress > 1; 
+          const grapheneBreaks = stress > 130; 
+
+          return (
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 mb-4 text-emerald-600 dark:text-emerald-400">
+                <i className="fa-solid fa-shield-halved text-xl"></i>
+                <h3 className="text-xl font-bold">Tensile Strength (Graphene vs Steel)</h3>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Apply physical stress (pulling force) to see which material holds up. Graphene's 2D carbon bonds make it incredibly strong.
+              </p>
+
+              <div className="space-y-6 mb-8">
+                <div>
+                  <div className="flex justify-between text-sm mb-1 font-semibold dark:text-slate-300">
+                    <span>Structural Steel</span>
+                    {steelBreaks ? <span className="text-red-500">FRACTURED</span> : <span className="text-emerald-500">HOLDING</span>}
+                  </div>
+                  <div className="h-6 w-full bg-slate-200 dark:bg-slate-700 rounded-md overflow-hidden flex relative">
+                    {!steelBreaks ? (
+                      <div className="h-full bg-slate-500 w-full transition-all duration-75" style={{ transform: `scaleX(${1 + (stress/100)})` }}></div>
+                    ) : (
+                      <div className="w-full flex justify-between">
+                        <div className="h-full bg-slate-500 w-[48%] rounded-r-md"></div>
+                        <div className="h-full bg-slate-500 w-[48%] rounded-l-md"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-sm mb-1 font-semibold dark:text-slate-300">
+                    <span>Pristine Graphene</span>
+                    {grapheneBreaks ? <span className="text-red-500">FRACTURED</span> : <span className="text-emerald-500">HOLDING</span>}
+                  </div>
+                  <div className="h-6 w-full bg-slate-200 dark:bg-slate-700 rounded-md overflow-hidden flex relative">
+                    {!grapheneBreaks ? (
+                      <div className="h-full bg-emerald-500 w-full transition-all duration-75" style={{ transform: `scaleX(${1 + (stress/500)})` }}></div>
+                    ) : (
+                      <div className="w-full flex justify-between">
+                        <div className="h-full bg-emerald-500 w-[48%] rounded-r-md"></div>
+                        <div className="h-full bg-emerald-500 w-[48%] rounded-l-md"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <input 
+                type="range" 
+                min="0" max="140" 
+                value={stress} 
+                onChange={(e) => setStress(parseInt(e.target.value))}
+                className="w-full accent-emerald-500 mb-4"
+              />
+              <div className="text-center font-bold text-lg dark:text-white mb-6">
+                Applied Stress: {stress} GPa
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 flex gap-3 text-sm text-slate-700 dark:text-slate-300 w-full text-left">
+                <i className="fa-solid fa-circle-info text-lg text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100 block mb-1">The Mechanism:</span>
+                  Bulk materials like steel fail at lower stresses because they contain microscopic grain boundaries and structural defects where fractures easily initiate. Nanomaterials like pristine graphene consist of perfectly arranged, defect-free covalent bonds (sp2 carbon), allowing them to approach the theoretical maximum strength of the chemical bonds themselves.
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const ConductivityVisualizer = () => {
+          const [scale, setScale] = useState(0); 
+          
+          return (
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 mb-4 text-amber-500 dark:text-amber-400">
+                <i className="fa-solid fa-bolt text-xl"></i>
+                <h3 className="text-xl font-bold">Electrical Conductivity</h3>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Transition from Bulk Copper to Carbon Nanotubes. At the nanoscale, electrons can exhibit "ballistic transport", flying straight through without hitting defects.
+              </p>
+
+              <div className="relative w-full h-32 bg-slate-900 rounded-lg overflow-hidden mb-6 border-2 border-slate-700">
+                <div className="absolute inset-0 flex flex-wrap justify-around items-center opacity-50 p-2">
+                   {Array.from({ length: 40 - Math.floor(scale/3) }).map((_, i) => (
+                     <div key={i} className="w-3 h-3 rounded-full bg-slate-700 m-1"></div>
+                   ))}
+                </div>
+                
+                <div className="absolute inset-0 overflow-hidden">
+                  {Array.from({ length: 10 }).map((_, i) => {
+                    const speed = 2 + (scale / 20); 
+                    const jitter = 100 - scale; 
+                    return (
+                      <div 
+                        key={i}
+                        className="absolute w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_#fbbf24]"
+                        style={{
+                          top: `${10 + (i * 8)}%`,
+                          left: `-5%`,
+                          animationName: 'fly',
+                          animationDuration: `${speed}s`,
+                          animationIterationCount: 'infinite',
+                          animationTimingFunction: 'linear',
+                          animationDelay: `${i * 0.3}s`,
+                          transform: `translateY(${Math.sin(i) * jitter}px)` 
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+                
+                <style>{`
+                  @keyframes fly {
+                    0% { left: -5%; opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { left: 105%; opacity: 0; }
+                  }
+                `}</style>
+              </div>
+
+              <input 
+                type="range" 
+                min="0" max="100" 
+                value={scale} 
+                onChange={(e) => setScale(parseInt(e.target.value))}
+                className="w-full accent-amber-500 mb-4"
+              />
+              <div className="w-full flex justify-between text-xs text-slate-500 font-semibold px-1 uppercase tracking-wider mb-6">
+                <span>Bulk Metal (High Scattering)</span>
+                <span className="text-amber-600 dark:text-amber-400">Carbon Nanotube (Ballistic)</span>
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 flex gap-3 text-sm text-slate-700 dark:text-slate-300 w-full text-left">
+                <i className="fa-solid fa-circle-info text-lg text-amber-500 flex-shrink-0 mt-0.5"></i>
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100 block mb-1">The Mechanism:</span>
+                  In bulk metals, electrons bounce off numerous atomic defects and vibrating lattice atoms, causing resistance and heat. In perfect 1D or 2D nanomaterials like Carbon Nanotubes, the "mean free path" of an electron is incredibly long. They exhibit "ballistic transport," zooming straight through without scattering, resulting in ultra-high conductivity.
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const ExploreTab = () => (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-4">
+                Journey to the Nanoscale
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 text-lg">
+                At 1 to 100 nanometers, the rules of physics change. Gravity becomes negligible, surface area dominates, and quantum mechanics dictates color and conductivity. Play with the interactive models below.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <SurfaceVolumeVisualizer />
+              <OpticalVisualizer />
+              <MechanicsVisualizer />
+              <ConductivityVisualizer />
+            </div>
+          </div>
+        );
+
+        const StatRow = ({ label, value, explanation, highlight = false }) => (
+          <div className={`flex flex-col p-3 rounded-lg ${highlight ? 'bg-indigo-100/50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">{label}</span>
+              <span className={`font-bold text-right ml-4 ${highlight ? 'text-indigo-700 dark:text-indigo-300 text-lg' : 'text-slate-800 dark:text-slate-200'}`}>
+                {value}
+              </span>
+            </div>
+            {explanation && (
+              <div className={`text-xs mt-1 pt-2 border-t flex items-start gap-1.5 ${highlight ? 'border-indigo-200/50 dark:border-indigo-800/50 text-indigo-700/80 dark:text-indigo-300/80' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'}`}>
+                <i className="fa-solid fa-circle-info text-sm flex-shrink-0 mt-0.5"></i>
+                <span className="leading-relaxed">{explanation}</span>
+              </div>
+            )}
+          </div>
+        );
+
+        const CompareTab = () => {
+          const [selectedPair, setSelectedPair] = useState('carbon');
+          const pair = MATERIALS_DB[selectedPair];
+
+          return (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mb-8 flex justify-center">
+                <div className="bg-white dark:bg-slate-800 p-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 flex flex-wrap gap-2 justify-center">
+                  {Object.keys(MATERIALS_DB).map(key => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedPair(key)}
+                      className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                        selectedPair === key 
+                        ? 'bg-indigo-600 text-white shadow-lg' 
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {MATERIALS_DB[key].name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* NANO CARD */}
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-indigo-950/30 p-8 rounded-2xl shadow-xl border border-indigo-100 dark:border-indigo-800/50 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <i className="fa-solid fa-layer-group text-8xl text-indigo-500"></i>
+                  </div>
+                  <span className="bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full mb-4 inline-block">
+                    {pair.nano.type}
+                  </span>
+                  <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">{pair.nano.name}</h3>
+                  <p className="text-slate-700 dark:text-slate-300 mb-8 min-h-[80px]">
+                    {pair.nano.description}
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <StatRow label="Tensile Strength" value={`${pair.nano.strength} ${typeof pair.nano.strength === 'number' ? 'GPa' : ''}`} explanation={pair.nano.mechanisms.strength} highlight />
+                    <StatRow label="Conductivity" value={`${pair.nano.conductivity} ${typeof pair.nano.conductivity === 'number' ? 'S/m' : ''}`} explanation={pair.nano.mechanisms.conductivity} highlight />
+                    <StatRow label="Surface Area" value={`${pair.nano.surfaceArea} m²/g`} explanation={pair.nano.mechanisms.surfaceArea} highlight />
+                    <StatRow label="Optical Properties" value={pair.nano.optical} explanation={pair.nano.mechanisms.optical} highlight />
+                    <StatRow label="Density" value={pair.nano.density} explanation={pair.nano.mechanisms.density} highlight />
+                  </div>
+                </div>
+
+                {/* BULK CARD */}
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <i className="fa-solid fa-cube text-8xl text-slate-500"></i>
+                  </div>
+                  <span className="bg-slate-600 text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full mb-4 inline-block">
+                    {pair.bulk.type}
+                  </span>
+                  <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">{pair.bulk.name}</h3>
+                  <p className="text-slate-600 dark:text-slate-400 mb-8 min-h-[80px]">
+                    {pair.bulk.description}
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <StatRow label="Tensile Strength" value={`${pair.bulk.strength} ${typeof pair.bulk.strength === 'number' ? 'GPa' : ''}`} explanation={pair.bulk.mechanisms.strength} />
+                    <StatRow label="Conductivity" value={`${pair.bulk.conductivity} ${typeof pair.bulk.conductivity === 'number' ? 'S/m' : ''}`} explanation={pair.bulk.mechanisms.conductivity} />
+                    <StatRow label="Surface Area" value={`${pair.bulk.surfaceArea} m²/g`} explanation={pair.bulk.mechanisms.surfaceArea} />
+                    <StatRow label="Optical Properties" value={pair.bulk.optical} explanation={pair.bulk.mechanisms.optical} />
+                    <StatRow label="Density" value={pair.bulk.density} explanation={pair.bulk.mechanisms.density} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const QuizTab = () => {
+          const [currentQuestion, setCurrentQuestion] = useState(0);
+          const [score, setScore] = useState(0);
+          const [showFeedback, setShowFeedback] = useState(false);
+          const [selectedAnswer, setSelectedAnswer] = useState("");
+          const [isCorrect, setIsCorrect] = useState(false);
+          const [quizComplete, setQuizComplete] = useState(false);
+          const [history, setHistory] = useState([]);
+
+          const handleAnswerSubmit = (answer) => {
+            if (showFeedback) return;
+            setSelectedAnswer(answer);
+            const q = QUIZ_QUESTIONS[currentQuestion];
+            let correct = false;
+            
+            if (q.type === 'fib') {
+              correct = answer.toLowerCase().trim() === q.correctAnswer.toLowerCase();
+            } else {
+              correct = answer === q.correctAnswer;
+            }
+            
+            setIsCorrect(correct);
+            if (correct) setScore(s => s + 1);
+            setShowFeedback(true);
+          };
+
+          const nextQuestion = () => {
+            if (currentQuestion < QUIZ_QUESTIONS.length - 1) {
+              setCurrentQuestion(c => c + 1);
+              setShowFeedback(false);
+              setSelectedAnswer("");
+            } else {
+              setQuizComplete(true);
+              setHistory(prev => [...prev, { score: score + (isCorrect ? 1 : 0), max: QUIZ_QUESTIONS.length, date: new Date().toLocaleTimeString() }]);
+            }
+          };
+
+          const restartQuiz = () => {
+            setCurrentQuestion(0);
+            setScore(0);
+            setShowFeedback(false);
+            setSelectedAnswer("");
+            setQuizComplete(false);
+          };
+
+          if (quizComplete) {
+            return (
+              <div className="max-w-2xl mx-auto bg-white dark:bg-slate-800 p-10 rounded-2xl shadow-2xl text-center animate-in zoom-in duration-500 border border-slate-200 dark:border-slate-700">
+                <i className="fa-solid fa-trophy text-6xl text-yellow-500 mx-auto mb-6"></i>
+                <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Quiz Complete!</h2>
+                <p className="text-xl text-slate-600 dark:text-slate-400 mb-8">
+                  You scored <span className="text-indigo-600 dark:text-indigo-400 font-bold text-3xl">{score}</span> out of {QUIZ_QUESTIONS.length}.
+                </p>
+                
+                {history.length > 0 && (
+                  <div className="mb-8 text-left bg-slate-50 dark:bg-slate-900 p-4 rounded-lg">
+                    <h4 className="font-bold mb-2 dark:text-white">Previous Attempts:</h4>
+                    <ul className="space-y-1">
+                      {history.map((h, i) => (
+                        <li key={i} className="text-sm text-slate-600 dark:text-slate-400">
+                          Attempt {i + 1}: {h.score}/{h.max} <span className="opacity-50">({h.date})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <button 
+                  onClick={restartQuiz}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-full font-bold text-lg flex items-center justify-center gap-2 mx-auto transition-colors"
+                >
+                  <i className="fa-solid fa-rotate-right text-lg"></i> Retake Quiz
+                </button>
+              </div>
+            );
+          }
+
+          const q = QUIZ_QUESTIONS[currentQuestion];
+
+          return (
+            <div className="max-w-3xl mx-auto">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Knowledge Check</h2>
+                <div className="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-4 py-1 rounded-full font-bold">
+                  Question {currentQuestion + 1} of {QUIZ_QUESTIONS.length}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 mb-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 h-1.5 bg-slate-200 dark:bg-slate-700 w-full">
+                  <div 
+                    className="h-full bg-indigo-500 transition-all duration-500"
+                    style={{ width: `${((currentQuestion) / QUIZ_QUESTIONS.length) * 100}%` }}
+                  />
+                </div>
+
+                <h3 className="text-xl font-medium text-slate-800 dark:text-slate-200 mb-8 mt-2">
+                  {q.question}
+                </h3>
+
+                <div className="space-y-3">
+                  {(q.type === 'mcq' || q.type === 'tf') && (
+                    (q.type === 'tf' ? ["True", "False"] : q.options).map((opt, i) => (
+                      <button
+                        key={i}
+                        disabled={showFeedback}
+                        onClick={() => handleAnswerSubmit(opt)}
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all font-medium ${
+                          showFeedback 
+                            ? opt === q.correctAnswer 
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-900 dark:bg-emerald-900/30 dark:border-emerald-500 dark:text-emerald-300'
+                              : opt === selectedAnswer
+                                ? 'bg-red-50 border-red-500 text-red-900 dark:bg-red-900/30 dark:border-red-500 dark:text-red-300'
+                                : 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+                            : 'border-slate-200 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))
+                  )}
+
+                  {q.type === 'fib' && (
+                    <div className="flex flex-col gap-4">
+                      <input 
+                        type="text" 
+                        disabled={showFeedback}
+                        placeholder="Type your answer here..."
+                        value={selectedAnswer}
+                        onChange={(e) => setSelectedAnswer(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && selectedAnswer && handleAnswerSubmit(selectedAnswer)}
+                        className="w-full p-4 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:outline-none focus:border-indigo-500 font-medium"
+                      />
+                      {!showFeedback && (
+                        <button 
+                          disabled={!selectedAnswer}
+                          onClick={() => handleAnswerSubmit(selectedAnswer)}
+                          className="bg-indigo-600 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-bold w-full md:w-auto self-end"
+                        >
+                          Submit Answer
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {showFeedback && (
+                <div className={`p-6 rounded-2xl border-2 animate-in slide-in-from-top-4 duration-300 mb-6 ${
+                  isCorrect 
+                    ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' 
+                    : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
+                }`}>
+                  <div className="flex items-start gap-4">
+                    {isCorrect ? <i className="fa-regular fa-circle-check text-3xl text-emerald-600 dark:text-emerald-400 flex-shrink-0"></i> : <i className="fa-regular fa-circle-xmark text-3xl text-red-600 dark:text-red-400 flex-shrink-0"></i>}
+                    <div>
+                      <h4 className={`text-xl font-bold mb-2 ${isCorrect ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300'}`}>
+                        {isCorrect ? "Correct!" : "Incorrect"}
+                      </h4>
+                      <p className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                        {q.explanation}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showFeedback && (
+                <div className="flex justify-end">
+                  <button 
+                    onClick={nextQuestion}
+                    className="bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white px-8 py-4 rounded-full font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+                  >
+                    {currentQuestion === QUIZ_QUESTIONS.length - 1 ? 'Finish Quiz' : 'Next Question'}
+                    <i className="fa-solid fa-chevron-right text-lg"></i>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        function App() {
+          const [darkMode, setDarkMode] = useState(true);
+          const [activeTab, setActiveTab] = useState('explore'); 
+
+          useEffect(() => {
+            if (darkMode) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+          }, [darkMode]);
+
+          return (
+            <div className={`min-h-screen ${darkMode ? 'dark bg-slate-900' : 'bg-slate-50'} transition-colors duration-300 font-sans`}>
+              <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-tr from-indigo-600 to-purple-600 p-2 rounded-lg text-white">
+                      <i className="fa-solid fa-flask text-xl"></i>
+                    </div>
+                    <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                      NANO Explorer
+                    </h1>
+                  </div>
+
+                  <nav className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-1 shadow-inner overflow-x-auto max-w-full">
+                    <button 
+                      onClick={() => setActiveTab('explore')}
+                      className={`whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${activeTab === 'explore' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                      <i className="fa-solid fa-chart-line text-base"></i> Explore
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('compare')}
+                      className={`whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${activeTab === 'compare' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                      <i className="fa-solid fa-layer-group text-base"></i> Compare Nano vs Macro
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('quiz')}
+                      className={`whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${activeTab === 'quiz' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                      <i className="fa-solid fa-book-open text-base"></i> Quiz
+                    </button>
+                  </nav>
+
+                  <button 
+                    onClick={() => setDarkMode(!darkMode)}
+                    className="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                    title="Toggle Theme"
+                  >
+                    {darkMode ? <i className="fa-solid fa-sun text-lg"></i> : <i className="fa-solid fa-moon text-lg"></i>}
+                  </button>
+                </div>
+              </header>
+
+              <main className="container mx-auto px-4 py-8 pb-20">
+                {activeTab === 'explore' && <ExploreTab />}
+                {activeTab === 'compare' && <CompareTab />}
+                {activeTab === 'quiz' && <QuizTab />}
+              </main>
+            </div>
+          );
+        }
+
+        const rootElement = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(<App />);
+    </script>
+</body>
+</html>
